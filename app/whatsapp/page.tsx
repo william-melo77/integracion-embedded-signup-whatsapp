@@ -28,6 +28,43 @@ export default function WhatsAppEmbeddedSignupPage() {
     const [phoneNumberId, setPhoneNumberId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
+    // ✅ handler asíncrono separado
+    const handleLoginResponse = useCallback(
+        async (response: any) => {
+            setSdkResponse(response);
+            const code = response?.authResponse?.code as string | undefined;
+            if (!code) {
+                alert("No se recibió authorization code.");
+                return;
+            }
+            setLoading(true);
+            try {
+                const res = await fetch("/api/whatsapp/exchange-code", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        code,
+                        waba_id: wabaId,
+                        phone_number_id: phoneNumberId,
+                    }),
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err?.error || "Fallo al canjear el code");
+                }
+                const data = await res.json();
+                window.location.href = `/whatsapp/success?tenant=${encodeURIComponent(
+                    data?.tenantId || ""
+                )}`;
+            } catch (e: any) {
+                alert(e?.message || "Error al integrar WhatsApp");
+            } finally {
+                setLoading(false);
+            }
+        },
+        [wabaId, phoneNumberId]
+    );
+
     // === Listener de postMessage (facebook.com / web.facebook.com) ===
     useEffect(() => {
         const onMessage = (event: MessageEvent) => {
@@ -72,47 +109,13 @@ export default function WhatsAppEmbeddedSignupPage() {
         return () => window.removeEventListener("message", onMessage);
     }, []);
 
-    // === Callback de FB.login (recibe authResponse.code) ===
+    // ✅ callback síncrono para FB.login
     const fbLoginCallback = useCallback(
-        async (response: any) => {
-            setSdkResponse(response);
-            const code = response?.authResponse?.code as string | undefined;
-            if (!code) {
-                alert("No se recibió authorization code.");
-                return;
-            }
-            codeRef.current = code;
-
-            setLoading(true);
-            try {
-                // Enviar code + ids al backend para canjear token y persistir
-                const res = await fetch("/api/whatsapp/exchange-code", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        code,
-                        waba_id: wabaId,
-                        phone_number_id: phoneNumberId,
-                    }),
-                });
-
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err?.error || "Fallo al canjear el code");
-                }
-
-                const data = await res.json();
-                // Redirige a una pantalla final de éxito/onboarding siguiente paso
-                window.location.href = `/whatsapp/success?tenant=${encodeURIComponent(
-                    data?.tenantId || ""
-                )}`;
-            } catch (e: any) {
-                alert(e?.message || "Error al integrar WhatsApp");
-            } finally {
-                setLoading(false);
-            }
+        (response: any) => {
+            // No returns, no await aquí
+            void handleLoginResponse(response);
         },
-        [wabaId, phoneNumberId]
+        [handleLoginResponse]
     );
 
     // === Lanzar Embedded Signup ===
@@ -124,11 +127,10 @@ export default function WhatsAppEmbeddedSignupPage() {
             );
             return;
         }
-
         FB.login(fbLoginCallback, {
             config_id: process.env.NEXT_PUBLIC_EMBEDDED_SIGNUP_CONFIG_ID,
-            response_type: "code", // obligatorio para System User access token
-            override_default_response_type: true, // forzar el tipo 'code'
+            response_type: "code",
+            override_default_response_type: true,
             extras: { version: "v3" },
         });
     }, [fbLoginCallback]);
