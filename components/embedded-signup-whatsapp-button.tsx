@@ -41,25 +41,28 @@ export default function ConnectButton({
             onStart?.();
 
             window.FB.login(
-                async (resp: any) => {
-                    try {
-                        if (resp?.authResponse?.code) {
-                            // Envía el "code" a tu backend para el intercambio por token
-                            await fetch("/api/whatsapp/es/callback", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ code: resp.authResponse.code }),
-                            });
-                            onSuccess?.();
-                            // aquí puedes refrescar UI / estado del tenant
-                        } else {
-                            console.warn("Embedded Signup cancelado o sin code", resp);
-                            onError?.(resp);
+                (resp: any) => {
+                    // El SDK parece rechazar callbacks async; usamos una IIFE.
+                    (async () => {
+                        try {
+                            if (resp?.authResponse?.code) {
+                                // Envía el "code" a tu backend para el intercambio por token
+                                await fetch("/api/whatsapp/es/callback", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ code: resp.authResponse.code }),
+                                });
+                                onSuccess?.();
+                                // aquí puedes refrescar UI / estado del tenant
+                            } else {
+                                console.warn("Embedded Signup cancelado o sin code", resp);
+                                onError?.(resp);
+                            }
+                        } catch (err) {
+                            console.error("Error en callback de embedded signup", err);
+                            onError?.(err);
                         }
-                    } catch (err) {
-                        console.error("Error en callback de embedded signup", err);
-                        onError?.(err);
-                    }
+                    })();
                 },
                 {
                     config_id: process.env.NEXT_PUBLIC_FB_ES_CONFIG_ID, // tu Configuration ID
