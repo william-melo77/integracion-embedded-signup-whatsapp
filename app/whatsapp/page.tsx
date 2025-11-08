@@ -23,6 +23,8 @@ type WaEvent =
 export default function WhatsAppEmbeddedSignupPage() {
     const [sessionInfo, setSessionInfo] = useState<any>(null);
     const [sdkResponse, setSdkResponse] = useState<any>(null);
+    const [accessToken, setAccessToken] = useState<string | null>(null);
+    const [expiresIn, setExpiresIn] = useState<number | null>(null);
     const codeRef = useRef<string | null>(null);
     const [wabaId, setWabaId] = useState<string | null>(null);
     const [phoneNumberId, setPhoneNumberId] = useState<string | null>(null);
@@ -53,9 +55,14 @@ export default function WhatsAppEmbeddedSignupPage() {
                     throw new Error(err?.error || "Fallo al canjear el code");
                 }
                 const data = await res.json();
-                window.location.href = `/whatsapp/success?tenant=${encodeURIComponent(
-                    data?.tenantId || ""
-                )}`;
+                // Guardar token y expiración en UI
+                setAccessToken(data?.access_token ?? null);
+                setExpiresIn(
+                    typeof data?.expiresIn === "number"
+                        ? data.expiresIn
+                        : null
+                );
+
             } catch (e: any) {
                 alert(e?.message || "Error al integrar WhatsApp");
             } finally {
@@ -173,6 +180,20 @@ export default function WhatsAppEmbeddedSignupPage() {
                 <pre className="rounded border p-3 text-sm overflow-auto">
                     {JSON.stringify(sdkResponse, null, 2)}
                 </pre>
+            </div>
+
+            <div className="mt-6">
+                <p className="font-medium mb-2">Access Token recibido:</p>
+                {accessToken ? (
+                    <pre className="rounded border p-3 text-sm overflow-auto break-all">
+                        {accessToken}
+                    </pre>
+                ) : (
+                    <p className="text-sm text-gray-600">Aún no recibido.</p>
+                )}
+                {expiresIn !== null && (
+                    <p className="text-sm mt-2">Expira en (s): {expiresIn}</p>
+                )}
             </div>
         </main>
     );

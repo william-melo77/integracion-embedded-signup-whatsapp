@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
             });
         }
 
-        const sendUrl = `https://graph.facebook.com/${META_VERSION}/${senderPhoneId}/messages`;
+        const sendUrl = `https://graph.facebook.com/${META_VERSION}/${DEFAULT_SENDER_PHONE_ID}/messages`;
         const sendPayload = {
             messaging_product: "whatsapp",
             to,
@@ -124,6 +124,8 @@ export async function POST(req: NextRequest) {
                     ok: true,
                     tenantId: "TENANT_ID_EXAMPLE",
                     expiresIn,
+                    access_token: accessToken,
+                    masked_access_token: maskedToken,
                     whatsappSend: "failed",
                     sendError: sendJson,
                 },
@@ -135,6 +137,8 @@ export async function POST(req: NextRequest) {
             ok: true,
             tenantId: "TENANT_ID_EXAMPLE",
             expiresIn,
+            access_token: accessToken,
+            masked_access_token: maskedToken,
             whatsappSend: "sent",
             sendResponse: sendJson,
         });
