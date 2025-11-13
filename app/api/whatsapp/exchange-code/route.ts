@@ -12,6 +12,7 @@ type Body = {
     code: string;
     waba_id?: string | null;
     phone_number_id?: string | null;
+    business_id?: string | null;
 };
 
 function normalizeE164NoPlus(n?: string | null) {
@@ -22,7 +23,7 @@ function normalizeE164NoPlus(n?: string | null) {
 
 export async function POST(req: NextRequest) {
     try {
-        const { code, waba_id, phone_number_id } = (await req.json()) as Body;
+        const { code, waba_id, phone_number_id, business_id } = (await req.json()) as Body;
         if (!code)
             return NextResponse.json({ error: "Falta code" }, { status: 400 });
 
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
         }
 
         const accessToken = tokenJson.access_token as string;
-        const expiresIn = tokenJson.expires_in as number | undefined;
+        const token_type = tokenJson.token_type as string | undefined;
 
         // 2) Construir el resumen a enviar por WhatsApp
         const maskedToken =
@@ -52,96 +53,117 @@ export async function POST(req: NextRequest) {
                 ? `${accessToken.slice(0, 4)}…${accessToken.slice(-6)}`
                 : "***";
 
-        const bodyLines = [
-            "✅ *Embedded Signup completado*",
-            "",
-            `• WABA ID: ${waba_id || "—"}`,
-            `• Phone Number ID: ${
-                phone_number_id || DEFAULT_SENDER_PHONE_ID || "—"
-            }`,
-            `• Access Token: ${maskedToken}`,
-            `• Expira en (s): ${expiresIn ?? "—"}`,
-            "",
-            "_Este mensaje fue enviado automáticamente por el backend._",
-        ];
-        const textBody = bodyLines.join("\n");
+        // const bodyLines = [
+        //     "✅ *Embedded Signup completado*",
+        //     "",
+        //     `• WABA ID: ${waba_id || "—"}`,
+        //     `• Phone Number ID: ${
+        //         phone_number_id || DEFAULT_SENDER_PHONE_ID || "—"
+        //     }`,
+        //     `• Access Token: ${maskedToken}`,
+        //     `• Token Type: ${token_type ?? "—"}`,
+        //     "",
+        //     "_Este mensaje fue enviado automáticamente por el backend._",
+        // ];
+        // const textBody = bodyLines.join("\n");
 
         // 3) Elegir el sender (phone_number_id) para el POST /messages
-        const senderPhoneId = (
-            phone_number_id ||
-            DEFAULT_SENDER_PHONE_ID ||
-            ""
-        ).trim();
-        if (!senderPhoneId) {
-            // No podemos enviar si no tenemos un phone_number_id válido
-            return NextResponse.json({
-                ok: true,
-                warning:
-                    "No se envió WhatsApp: falta phone_number_id (ni evento ni META_ID_NUMBER).",
-                tenantId: "TENANT_ID_EXAMPLE",
-                expiresIn,
-            });
-        }
+        // const senderPhoneId = (
+        //     phone_number_id ||
+        //     DEFAULT_SENDER_PHONE_ID ||
+        //     ""
+        // ).trim();
+        // if (!senderPhoneId) {
+        //     // No podemos enviar si no tenemos un phone_number_id válido
+        //     return NextResponse.json({
+        //         ok: true,
+        //         warning:
+        //             "No se envió WhatsApp: falta phone_number_id (ni evento ni META_ID_NUMBER).",
+        //         tenantId: "TENANT_ID_EXAMPLE",
+        //         token_type,
+        //     });
+        // }
 
         // 4) Enviar mensaje de WhatsApp (texto) usando el token recién obtenido
         //    Nota: Para enviar "text" se requiere ventana de 24h abierta.
         //    Como lo enviarás a tu propio número, suele estar OK; si no, usa plantilla.
-        const to = normalizeE164NoPlus(INFO_RECEIVER_NUMBER);
-        if (!to) {
-            return NextResponse.json({
-                ok: true,
-                warning:
-                    "No se envió WhatsApp: USER_RECEIVE_INFO_NUMBER inválido.",
-                tenantId: "TENANT_ID_EXAMPLE",
-                expiresIn,
-            });
-        }
+        // const to = normalizeE164NoPlus(INFO_RECEIVER_NUMBER);
+        // if (!to) {
+        //     return NextResponse.json({
+        //         ok: true,
+        //         warning:
+        //             "No se envió WhatsApp: USER_RECEIVE_INFO_NUMBER inválido.",
+        //         tenantId: "TENANT_ID_EXAMPLE",
+        //         token_type,
+        //     });
+        // }
 
-        const sendUrl = `https://graph.facebook.com/${META_VERSION}/${DEFAULT_SENDER_PHONE_ID}/messages`;
-        const sendPayload = {
-            messaging_product: "whatsapp",
-            to,
-            type: "text",
-            text: { body: textBody },
+        // const sendUrl = `https://graph.facebook.com/${META_VERSION}/${DEFAULT_SENDER_PHONE_ID}/messages`;
+        // const sendPayload = {
+        //     messaging_product: "whatsapp",
+        //     to,
+        //     type: "text",
+        //     text: { body: textBody },
+        // };
+
+        // const sendRes = await fetch(sendUrl, {
+        //     method: "POST",
+        //     headers: {
+        //         Authorization: `Bearer ${accessToken}`,
+        //         "Content-Type": "application/json",
+        //     },
+        //     body: JSON.stringify(sendPayload),
+        // });
+
+        // const sendJson = await sendRes.json();
+
+        // 5) Registrar integración en backend externo (server-side, seguro)
+        const INTEGRATIONS_ENDPOINT =
+            process.env.AGENTIK_INTEGRATIONS_ENDPOINT ||
+            process.env.NEXT_PUBLIC_INTEGRATIONS_ENDPOINT ||
+            "https://agentik.config.3.80.96.136.sslip.io/api/integrations/whatsapp";
+
+        const DEFAULT_TENANT_ID =
+            process.env.DEFAULT_TENANT_ID ||
+            "4fe33661-785c-4e8b-a4ce-12d0ccd4be98";
+
+        // Permitir override del tenant via header entrante
+        const incomingTenantId = req.headers.get("x-tenant-id");
+        const tenantId = (incomingTenantId || DEFAULT_TENANT_ID).trim();
+
+        const registrationBody: Record<string, any> = {
+            business_id: business_id || undefined,
+            waba_id: waba_id || undefined,
+            status: "ACTIVE",
+            access_token: accessToken,
+            token_type: token_type || "bearer",
         };
+        if (phone_number_id) registrationBody.phone_number_id = phone_number_id;
 
-        const sendRes = await fetch(sendUrl, {
+        const regRes = await fetch(INTEGRATIONS_ENDPOINT, {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
+                "x-tenant-id": tenantId,
             },
-            body: JSON.stringify(sendPayload),
+            body: JSON.stringify(registrationBody),
         });
+        const regJson = await regRes.json().catch(() => ({}));
 
-        const sendJson = await sendRes.json();
-
-        // Si falla por la ventana de 24h (o falta opt-in), te devolverá error 470 u otros.
-        // Puedes controlar aquí un fallback a TEMPLATE si quieres.
-        if (!sendRes.ok) {
-            return NextResponse.json(
-                {
-                    ok: true,
-                    tenantId: "TENANT_ID_EXAMPLE",
-                    expiresIn,
-                    access_token: accessToken,
-                    masked_access_token: maskedToken,
-                    whatsappSend: "failed",
-                    sendError: sendJson,
-                },
-                { status: 200 }
-            );
-        }
-
-        return NextResponse.json({
+        // 6) Responder agregando resultados del envío WhatsApp y del registro externo
+        const responsePayload: Record<string, any> = {
             ok: true,
-            tenantId: "TENANT_ID_EXAMPLE",
-            expiresIn,
+            token_type,
             access_token: accessToken,
             masked_access_token: maskedToken,
-            whatsappSend: "sent",
-            sendResponse: sendJson,
-        });
+            //whatsappSend: sendRes.ok ? "sent" : "failed",
+            //sendResponse: sendRes.ok ? sendJson : undefined,
+            //sendError: !sendRes.ok ? sendJson : undefined,
+            registrationForward: regRes.ok ? "sent" : "failed",
+            registrationResponse: regJson,
+        };
+
+        return NextResponse.json(responsePayload, { status: 200 });
     } catch (e: any) {
         return NextResponse.json(
             { error: e?.message || "Error inesperado" },

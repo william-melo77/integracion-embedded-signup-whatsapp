@@ -24,7 +24,16 @@ export default function WhatsAppEmbeddedSignupPage() {
     const [sessionInfo, setSessionInfo] = useState<any>(null);
     const [sdkResponse, setSdkResponse] = useState<any>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
-    const [expiresIn, setExpiresIn] = useState<number | null>(null);
+    const [token_type, settoken_type] = useState<string | null>(null);
+    const [businessId, setBusinessId] = useState<string | null>(null);
+    const [registrationForward, setRegistrationForward] = useState<
+        string | null
+    >(null); // "sent" | "failed"
+    const [registrationResponse, setRegistrationResponse] = useState<any>(null);
+    const [whatsappSendStatus, setWhatsappSendStatus] = useState<string | null>(
+        null
+    ); // "sent" | "failed"
+    const [whatsappSendPayload, setWhatsappSendPayload] = useState<any>(null);
     const codeRef = useRef<string | null>(null);
     const [wabaId, setWabaId] = useState<string | null>(null);
     const [phoneNumberId, setPhoneNumberId] = useState<string | null>(null);
@@ -48,6 +57,7 @@ export default function WhatsAppEmbeddedSignupPage() {
                         code,
                         waba_id: wabaId,
                         phone_number_id: phoneNumberId,
+                        business_id: businessId,
                     }),
                 });
                 if (!res.ok) {
@@ -57,12 +67,26 @@ export default function WhatsAppEmbeddedSignupPage() {
                 const data = await res.json();
                 // Guardar token y expiración en UI
                 setAccessToken(data?.access_token ?? null);
-                setExpiresIn(
-                    typeof data?.expiresIn === "number"
-                        ? data.expiresIn
+                settoken_type(
+                    typeof data?.token_type === "string"
+                        ? data.token_type
                         : null
                 );
-
+                // Estado del envío de WhatsApp (interno) y del registro externo
+                setWhatsappSendStatus(
+                    typeof data?.whatsappSend === "string"
+                        ? data.whatsappSend
+                        : null
+                );
+                setWhatsappSendPayload(
+                    data?.sendResponse ?? data?.sendError ?? null
+                );
+                setRegistrationForward(
+                    typeof data?.registrationForward === "string"
+                        ? data.registrationForward
+                        : null
+                );
+                setRegistrationResponse(data?.registrationResponse ?? null);
             } catch (e: any) {
                 alert(e?.message || "Error al integrar WhatsApp");
             } finally {
@@ -91,8 +115,10 @@ export default function WhatsAppEmbeddedSignupPage() {
                     if ((data as any).event === "FINISH") {
                         const pId = (data as any).data?.phone_number_id ?? null;
                         const wId = (data as any).data?.waba_id ?? null;
+                        const bId = (data as any).data?.business_id ?? null;
                         setPhoneNumberId(pId);
                         setWabaId(wId);
+                        setBusinessId(bId);
                         console.log("Phone number ID", pId, "WABA ID", wId);
                     } else if ((data as any).event === "CANCEL") {
                         console.warn(
@@ -191,8 +217,62 @@ export default function WhatsAppEmbeddedSignupPage() {
                 ) : (
                     <p className="text-sm text-gray-600">Aún no recibido.</p>
                 )}
-                {expiresIn !== null && (
-                    <p className="text-sm mt-2">Expira en (s): {expiresIn}</p>
+                {token_type !== null && (
+                    <p className="text-sm mt-2">Token Type: {token_type}</p>
+                )}
+            </div>
+
+            {/* Banner de registro externo */}
+            <div className="mt-6">
+                <p className="font-medium mb-2">Registro externo:</p>
+                {registrationForward ? (
+                    <div
+                        className={
+                            "rounded border p-3 text-sm " +
+                            (registrationForward === "sent"
+                                ? "border-green-300 bg-green-50"
+                                : "border-orange-300 bg-orange-50")
+                        }
+                    >
+                        <p className="mb-2">
+                            Estado: <strong>{registrationForward}</strong>
+                        </p>
+                        <pre className="rounded border p-3 text-xs overflow-auto">
+                            {JSON.stringify(registrationResponse, null, 2)}
+                        </pre>
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-600">Aún no enviado.</p>
+                )}
+            </div>
+
+            {/* Resultado del envío de WhatsApp interno (si aplica) */}
+            <div className="mt-6">
+                <p className="font-medium mb-2">Envío de WhatsApp (interno):</p>
+                {whatsappSendStatus ? (
+                    <div
+                        className={
+                            "rounded border p-3 text-sm " +
+                            (whatsappSendStatus === "sent"
+                                ? "border-green-300 bg-green-50"
+                                : "border-orange-300 bg-orange-50")
+                        }
+                    >
+                        <p className="mb-2">
+                            Estado: <strong>{whatsappSendStatus}</strong>
+                        </p>
+                        {whatsappSendPayload ? (
+                            <pre className="rounded border p-3 text-xs overflow-auto">
+                                {JSON.stringify(whatsappSendPayload, null, 2)}
+                            </pre>
+                        ) : (
+                            <p className="text-sm text-gray-600">
+                                Sin payload.
+                            </p>
+                        )}
+                    </div>
+                ) : (
+                    <p className="text-sm text-gray-600">Aún no enviado.</p>
                 )}
             </div>
         </main>
