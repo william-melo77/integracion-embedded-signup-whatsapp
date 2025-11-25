@@ -38,33 +38,51 @@ export default function WhatsAppEmbeddedSignupPage() {
     const [wabaId, setWabaId] = useState<string | null>(null);
     const [phoneNumberId, setPhoneNumberId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    
+    // ✅ Guardar el code en estado cuando llega del SDK
+    const [authCode, setAuthCode] = useState<string | null>(null);
 
-    // ✅ handler asíncrono separado
-    const handleLoginResponse = useCallback(
-        async (response: any) => {
-            setSdkResponse(response);
-            const code = response?.authResponse?.code as string | undefined;
-            if (!code) {
-                alert("No se recibió authorization code.");
-                return;
-            }
-            setLoading(true);
+    // ✅ Este useEffect se ejecuta cuando AMBOS (code + IDs) están disponibles
+    useEffect(() => {
+        // Solo ejecutar si tenemos TODOS los valores necesarios
+        if (!authCode || !businessId || !wabaId || !phoneNumberId) {
+            return;
+        }
+
+        // Evitar doble ejecución
+        if (loading || accessToken) {
+            return;
+        }
+
+        console.log("✅ Todos los valores disponibles, enviando al backend:", {
+            authCode,
+            businessId,
+            wabaId,
+            phoneNumberId,
+        });
+
+        setLoading(true);
+
+        const exchangeCode = async () => {
             try {
                 const res = await fetch("/api/whatsapp/exchange-code", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
-                        code,
+                        code: authCode,
                         waba_id: wabaId,
                         phone_number_id: phoneNumberId,
                         business_id: businessId,
                     }),
                 });
+                
                 if (!res.ok) {
                     const err = await res.json().catch(() => ({}));
                     throw new Error(err?.error || "Fallo al canjear el code");
                 }
+                
                 const data = await res.json();
+                
                 // Guardar token y expiración en UI
                 setAccessToken(data?.access_token ?? null);
                 settoken_type(
@@ -72,15 +90,8 @@ export default function WhatsAppEmbeddedSignupPage() {
                         ? data.token_type
                         : null
                 );
-                // Estado del envío de WhatsApp (interno) y del registro externo
-                setWhatsappSendStatus(
-                    typeof data?.whatsappSend === "string"
-                        ? data.whatsappSend
-                        : null
-                );
-                setWhatsappSendPayload(
-                    data?.sendResponse ?? data?.sendError ?? null
-                );
+                
+                // Estado del registro externo
                 setRegistrationForward(
                     typeof data?.registrationForward === "string"
                         ? data.registrationForward
@@ -92,8 +103,26 @@ export default function WhatsAppEmbeddedSignupPage() {
             } finally {
                 setLoading(false);
             }
+        };
+
+        void exchangeCode();
+    }, [authCode, businessId, wabaId, phoneNumberId, loading, accessToken]);
+
+    // ✅ handler asíncrono separado - solo guarda el code
+    const handleLoginResponse = useCallback(
+        (response: any) => {
+            setSdkResponse(response);
+            const code = response?.authResponse?.code as string | undefined;
+            
+            if (!code) {
+                alert("No se recibió authorization code.");
+                return;
+            }
+            
+            console.log("📥 Code recibido del SDK:", code);
+            setAuthCode(code);
         },
-        [wabaId, phoneNumberId]
+        []
     );
 
     // === Listener de postMessage (facebook.com / web.facebook.com) ===
