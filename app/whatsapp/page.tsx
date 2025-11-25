@@ -245,36 +245,6 @@ export default function WhatsAppEmbeddedSignupPage() {
                     <p className="text-sm text-gray-600">Aún no enviado.</p>
                 )}
             </div>
-
-            {/* Resultado del envío de WhatsApp interno (si aplica) */}
-            <div className="mt-6">
-                <p className="font-medium mb-2">Envío de WhatsApp (interno):</p>
-                {whatsappSendStatus ? (
-                    <div
-                        className={
-                            "rounded border p-3 text-sm " +
-                            (whatsappSendStatus === "sent"
-                                ? "border-green-300 bg-green-50"
-                                : "border-orange-300 bg-orange-50")
-                        }
-                    >
-                        <p className="mb-2">
-                            Estado: <strong>{whatsappSendStatus}</strong>
-                        </p>
-                        {whatsappSendPayload ? (
-                            <pre className="rounded border p-3 text-xs overflow-auto">
-                                {JSON.stringify(whatsappSendPayload, null, 2)}
-                            </pre>
-                        ) : (
-                            <p className="text-sm text-gray-600">
-                                Sin payload.
-                            </p>
-                        )}
-                    </div>
-                ) : (
-                    <p className="text-sm text-gray-600">Aún no enviado.</p>
-                )}
-            </div>
         </main>
     );
 }
