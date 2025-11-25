@@ -53,74 +53,9 @@ export async function POST(req: NextRequest) {
                 ? `${accessToken.slice(0, 4)}…${accessToken.slice(-6)}`
                 : "***";
 
-        // const bodyLines = [
-        //     "✅ *Embedded Signup completado*",
-        //     "",
-        //     `• WABA ID: ${waba_id || "—"}`,
-        //     `• Phone Number ID: ${
-        //         phone_number_id || DEFAULT_SENDER_PHONE_ID || "—"
-        //     }`,
-        //     `• Access Token: ${maskedToken}`,
-        //     `• Token Type: ${token_type ?? "—"}`,
-        //     "",
-        //     "_Este mensaje fue enviado automáticamente por el backend._",
-        // ];
-        // const textBody = bodyLines.join("\n");
-
-        // 3) Elegir el sender (phone_number_id) para el POST /messages
-        // const senderPhoneId = (
-        //     phone_number_id ||
-        //     DEFAULT_SENDER_PHONE_ID ||
-        //     ""
-        // ).trim();
-        // if (!senderPhoneId) {
-        //     // No podemos enviar si no tenemos un phone_number_id válido
-        //     return NextResponse.json({
-        //         ok: true,
-        //         warning:
-        //             "No se envió WhatsApp: falta phone_number_id (ni evento ni META_ID_NUMBER).",
-        //         tenantId: "TENANT_ID_EXAMPLE",
-        //         token_type,
-        //     });
-        // }
-
-        // 4) Enviar mensaje de WhatsApp (texto) usando el token recién obtenido
-        //    Nota: Para enviar "text" se requiere ventana de 24h abierta.
-        //    Como lo enviarás a tu propio número, suele estar OK; si no, usa plantilla.
-        // const to = normalizeE164NoPlus(INFO_RECEIVER_NUMBER);
-        // if (!to) {
-        //     return NextResponse.json({
-        //         ok: true,
-        //         warning:
-        //             "No se envió WhatsApp: USER_RECEIVE_INFO_NUMBER inválido.",
-        //         tenantId: "TENANT_ID_EXAMPLE",
-        //         token_type,
-        //     });
-        // }
-
-        // const sendUrl = `https://graph.facebook.com/${META_VERSION}/${DEFAULT_SENDER_PHONE_ID}/messages`;
-        // const sendPayload = {
-        //     messaging_product: "whatsapp",
-        //     to,
-        //     type: "text",
-        //     text: { body: textBody },
-        // };
-
-        // const sendRes = await fetch(sendUrl, {
-        //     method: "POST",
-        //     headers: {
-        //         Authorization: `Bearer ${accessToken}`,
-        //         "Content-Type": "application/json",
-        //     },
-        //     body: JSON.stringify(sendPayload),
-        // });
-
-        // const sendJson = await sendRes.json();
-
         // 5) Registrar integración en backend externo (server-side, seguro)
         const INTEGRATIONS_ENDPOINT =
             process.env.AGENTIK_INTEGRATIONS_ENDPOINT ||
-            process.env.NEXT_PUBLIC_INTEGRATIONS_ENDPOINT ||
             "https://agentik.config.3.80.96.136.sslip.io/api/integrations/whatsapp";
 
         const DEFAULT_TENANT_ID =
@@ -128,8 +63,7 @@ export async function POST(req: NextRequest) {
             "4fe33661-785c-4e8b-a4ce-12d0ccd4be98";
 
         // Permitir override del tenant via header entrante
-        const incomingTenantId = req.headers.get("x-tenant-id");
-        const tenantId = (incomingTenantId || DEFAULT_TENANT_ID).trim();
+        const tenantId = DEFAULT_TENANT_ID;
 
         const registrationBody: Record<string, any> = {
             business_id: business_id || undefined,
@@ -156,9 +90,6 @@ export async function POST(req: NextRequest) {
             token_type,
             access_token: accessToken,
             masked_access_token: maskedToken,
-            //whatsappSend: sendRes.ok ? "sent" : "failed",
-            //sendResponse: sendRes.ok ? sendJson : undefined,
-            //sendError: !sendRes.ok ? sendJson : undefined,
             registrationForward: regRes.ok ? "sent" : "failed",
             registrationResponse: regJson,
         };
