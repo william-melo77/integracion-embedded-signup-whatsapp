@@ -181,6 +181,7 @@ export default function WhatsAppEmbeddedSignupPage() {
     );
 
     // === Lanzar Embedded Signup ===
+    // Flujo normal: crear nueva cuenta de WhatsApp Business
     const launchWhatsAppSignup = useCallback(() => {
         const FB = (window as any).FB;
         if (!FB) {
@@ -197,6 +198,27 @@ export default function WhatsAppEmbeddedSignupPage() {
         });
     }, [fbLoginCallback]);
 
+    // === Lanzar Registro de App de WhatsApp Business ===
+    // Para usuarios que YA tienen WhatsApp Business en su móvil
+    const launchBusinessAppRegistration = useCallback(() => {
+        const FB = (window as any).FB;
+        if (!FB) {
+            alert(
+                "El SDK de Facebook aún no está listo. Intenta en unos segundos."
+            );
+            return;
+        }
+        FB.login(fbLoginCallback, {
+            config_id: process.env.NEXT_PUBLIC_EMBEDDED_SIGNUP_CONFIG_ID,
+            response_type: "code",
+            override_default_response_type: true,
+            extras: { 
+                version: "v3",
+                feature: "whatsapp_embedded_signup"  // ← Habilita registro de app existente
+            },
+        });
+    }, [fbLoginCallback]);
+
     return (
         <main className="max-w-2xl mx-auto py-10 px-4">
             <h1 className="text-2xl font-semibold mb-2">Embedded Signup</h1>
@@ -204,24 +226,66 @@ export default function WhatsAppEmbeddedSignupPage() {
                 Conecta tu WhatsApp Business con nuestro sistema.
             </p>
 
-            <button
-                onClick={launchWhatsAppSignup}
-                disabled={loading}
-                style={{
-                    backgroundColor: "#1877f2",
-                    border: 0,
-                    borderRadius: 4,
-                    color: "#fff",
-                    cursor: "pointer",
-                    fontFamily: "Helvetica, Arial, sans-serif",
-                    fontSize: 16,
-                    fontWeight: "bold",
-                    height: 40,
-                    padding: "0 24px",
-                }}
-            >
-                {loading ? "Conectando…" : "Login with Facebook"}
-            </button>
+            {/* Sección de elección de flujo */}
+            <div className="mb-8 p-4 border rounded-lg bg-gray-50">
+                <h2 className="text-lg font-medium mb-3">¿Cómo quieres conectar WhatsApp?</h2>
+                
+                <div className="space-y-3">
+                    {/* Opción 1: Crear nueva cuenta */}
+                    <div className="p-3 border rounded bg-white">
+                        <h3 className="font-medium mb-1">Crear nueva cuenta</h3>
+                        <p className="text-sm text-gray-600 mb-3">
+                            Para usuarios nuevos en WhatsApp Business
+                        </p>
+                        <button
+                            onClick={launchWhatsAppSignup}
+                            disabled={loading}
+                            style={{
+                                backgroundColor: "#1877f2",
+                                border: 0,
+                                borderRadius: 4,
+                                color: "#fff",
+                                cursor: loading ? "not-allowed" : "pointer",
+                                fontFamily: "Helvetica, Arial, sans-serif",
+                                fontSize: 14,
+                                fontWeight: "bold",
+                                height: 36,
+                                padding: "0 20px",
+                                opacity: loading ? 0.6 : 1,
+                            }}
+                        >
+                            {loading ? "Conectando…" : "Crear nueva cuenta"}
+                        </button>
+                    </div>
+
+                    {/* Opción 2: Conectar cuenta existente */}
+                    <div className="p-3 border rounded bg-white">
+                        <h3 className="font-medium mb-1">Conectar cuenta existente</h3>
+                        <p className="text-sm text-gray-600 mb-3">
+                            Ya tengo WhatsApp Business en mi móvil
+                        </p>
+                        <button
+                            onClick={launchBusinessAppRegistration}
+                            disabled={loading}
+                            style={{
+                                backgroundColor: "#25D366",
+                                border: 0,
+                                borderRadius: 4,
+                                color: "#fff",
+                                cursor: loading ? "not-allowed" : "pointer",
+                                fontFamily: "Helvetica, Arial, sans-serif",
+                                fontSize: 14,
+                                fontWeight: "bold",
+                                height: 36,
+                                padding: "0 20px",
+                                opacity: loading ? 0.6 : 1,
+                            }}
+                        >
+                            {loading ? "Conectando…" : "Conectar mi WhatsApp Business"}
+                        </button>
+                    </div>
+                </div>
+            </div>
 
             <div className="mt-6">
                 <p className="font-medium mb-2">Session info response:</p>
