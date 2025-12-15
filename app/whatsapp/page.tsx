@@ -214,7 +214,7 @@ export default function WhatsAppEmbeddedSignupPage() {
             override_default_response_type: true,
             extras: { 
                 version: "v3",
-                feature: "whatsapp_embedded_signup"  // ← Habilita registro de app existente
+                featureType: "whatsapp_business_app_onboarding"  // ← PARAMETRO CORRECTO SEGÚN DOCS V3
             },
         });
     }, [fbLoginCallback]);
